@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>複利計算ツール</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Meiryo, sans-serif;
+      background: #f5f5f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e0ddd5;
+      padding: 2rem;
+      width: 100%;
+      max-width: 680px;
+      height: fit-content;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      color: #1a1a1a;
+    }
+    .controls { display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+    .control-row { display: flex; align-items: center; gap: 12px; }
+    .control-row label { font-size: 14px; color: #666; min-width: 80px; }
+    .control-row input[type=range] {
+      flex: 1;
+      accent-color: #378ADD;
+    }
+    .control-row select {
+      flex: 1;
+      font-size: 14px;
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .val { font-size: 14px; font-weight: 500; min-width: 100px; text-align: right; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .metric {
+      background: #f5f5f0;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .mlabel { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .mval { font-size: 18px; font-weight: 500; }
+    .chart-title { font-size: 13px; color: #888; margin-bottom: 8px; }
+    .bar-wrap {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 180px;
+      padding-bottom: 28px;
+      position: relative;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      position: relative;
+    }
+    .bar-principal { background: #B5D4F4; border-radius: 3px 3px 0 0; width: 100%; }
+    .bar-interest  { background: #1D9E75; border-radius: 3px 3px 0 0; width: 100%; }
+    .bar-label {
+      font-size: 11px;
+      color: #999;
+      position: absolute;
+      bottom: -22px;
+      white-space: nowrap;
+    }
+    .legend { display: flex; gap: 16px; margin-top: 10px; }
+    .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+    .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .formula {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #f9f9f6;
+      border-left: 3px solid #378ADD;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.7;
+    }
+    .formula strong { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>複利計算ツール</h1>
+
+  <div class="controls">
+    <div class="control-row">
+      <label>元本</label>
+      <input type="range" id="principal" min="10000" max="10000000" step="10000" value="1000000">
+      <span class="val" id="p-out">¥1,000,000</span>
+    </div>
+    <div class="control-row">
+      <label>年利率</label>
+      <input type="range" id="rate" min="0.5" max="20" step="0.5" value="5">
+      <span class="val" id="r-out">5.0%</span>
+    </div>
+    <div class="control-row">
+      <label>運用年数</label>
+      <input type="range" id="years" min="1" max="40" step="1" value="20">
+      <span class="val" id="y-out">20年</span>
+    </div>
+    <div class="control-row">
+      <label>複利計算</label>
+      <select id="freq">
+        <option value="1">年1回</option>
+        <option value="2">半年ごと</option>
+        <option value="4">四半期ごと</option>
+        <option value="12" selected>月1回</option>
+      </select>
+      <span class="val"></span>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="mlabel">元本</div>
+      <div class="mval" id="m-principal">¥1,000,000</div>
+    </div>
+    <div class="metric">
+      <div class="mlabel">利息合計</div>
+      <div class="mval" id="m-interest" style="color:#1D9E75">—</div>
+    </div>
+    <div class="metric">
+      <div class="mlabel">最終金額</div>
+      <div class="mval" id="m-total">—</div>
+    </div>
+  </div>
+
+  <div class="chart-title">年数ごとの資産推移</div>
+  <div class="bar-wrap" id="chart"></div>
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#B5D4F4"></div>元本</div>
+    <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div>利息</div>
+  </div>
+
+  <div class="formula" id="formula"></div>
+</div>
+
+<script>
+  const fmt = v => '¥' + Math.round(v).toLocaleString('ja-JP');
+
+  function calc() {
+    const P = +document.getElementById('principal').value;
+    const r = +document.getElementById('rate').value / 100;
+    const Y = +document.getElementById('years').value;
+    const n = +document.getElementById('freq').value;
+    const rateVal = +document.getElementById('rate').value;
+
+    document.getElementById('p-out').textContent = fmt(P);
+    document.getElementById('r-out').textContent = rateVal.toFixed(1) + '%';
+    document.getElementById('y-out').textContent = Y + '年';
+    document.getElementById('m-principal').textContent = fmt(P);
+
+    const step = Math.max(1, Math.floor(Y / 10));
+    const points = [];
+    for (let y = step; y <= Y; y += step) {
+      points.push({ y, FV: P * Math.pow(1 + r / n, n * y) });
+    }
+    if (points[points.length - 1].y !== Y) {
+      points.push({ y: Y, FV: P * Math.pow(1 + r / n, n * Y) });
+    }
+
+    const finalFV = points[points.length - 1].FV;
+    document.getElementById('m-interest').textContent = fmt(finalFV - P);
+    document.getElementById('m-total').textContent = fmt(finalFV);
+
+    const maxFV = Math.max(...points.map(p => p.FV));
+    const chart = document.getElementById('chart');
+    chart.innerHTML = '';
+    points.forEach(({ y, FV }) => {
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      const totalH = Math.round((FV / maxFV) * 140);
+      const principalH = Math.round((P / maxFV) * 140);
+      const interestH = totalH - principalH;
+
+      const bi = document.createElement('div');
+      bi.className = 'bar-interest';
+      bi.style.height = interestH + 'px';
+
+      const bp = document.createElement('div');
+      bp.className = 'bar-principal';
+      bp.style.height = principalH + 'px';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'bar-label';
+      lbl.textContent = y + '年';
+
+      col.appendChild(bi);
+      col.appendChild(bp);
+      col.appendChild(lbl);
+      chart.appendChild(col);
+    });
+
+    const freqLabel = ['', '年1回', '半年ごと', '', '四半期ごと', '', '', '', '', '', '', '', '月1回'][n];
+    document.getElementById('formula').innerHTML =
+      `<strong>計算式：</strong> FV = ${fmt(P)} × (1 + ${rateVal.toFixed(1)}% ÷ ${n})<sup>${n} × ${Y}</sup><br>` +
+      `複利頻度：${freqLabel}　／　運用期間：${Y}年　／　倍率：${(finalFV / P).toFixed(2)}倍`;
+  }
+
+  ['principal','rate','years','freq'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calc);
+  });
+  calc();
+</script>
+</body>
+</html>

@@ -48,3 +48,4 @@ python recipe_suggester.py
 bash
 python3 --version
 結果を教えていただければさらにサポートします！
+アプリの文字化けは解消されましたが、タイトルが文字化けしています

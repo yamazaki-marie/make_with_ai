@@ -60,7 +60,7 @@ class RecipeApp:
     def __init__(self, root):
         global JP_FONT
         self.root = root
-        self.root.title("食材から料理提案アプリ")
+        self.root.title("Recipe Suggester")
         self.root.geometry("700x600")
         self.root.resizable(True, True)
         self.root.configure(bg="#f5f5f0")
